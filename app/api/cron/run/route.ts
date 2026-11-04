@@ -3,7 +3,7 @@
 // followers) are refreshed. Called with `Authorization: Bearer <CRON_SECRET>`
 // (Accounts → Scheduled posts has the Supabase setup).
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, setupProblem } from "@/lib/db";
 import { refreshFollowers, refreshMetrics } from "@/lib/insights";
 import { publishDue } from "@/lib/publish";
 import { loadSettings } from "@/lib/store";
@@ -15,12 +15,9 @@ export async function GET(request: Request) {
   if (!secret) return NextResponse.json({ error: "CRON_SECRET isn't set; scheduled posts can't go out by themselves." }, { status: 503 });
   if (request.headers.get("authorization") !== `Bearer ${secret}`) return NextResponse.json({ error: "Not allowed." }, { status: 401 });
   const started = Date.now();
-  let database;
-  try {
-    database = db();
-  } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : "not set up" }, { status: 503 });
-  }
+  const problem = await setupProblem();
+  if (problem) return NextResponse.json({ error: problem }, { status: 503 });
+  const database = db();
   const settings = await loadSettings(database);
   const report = await publishDue(database, { until: started + 150_000 });
   // numbers are a nicety: only with the time posting left over
