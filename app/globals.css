@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+/* Design tokens. Utilities like bg-spruce, text-ink, border-line come from these
+   (the names are kept from the components this app started with). */
+@theme {
+  --color-paper: #f6f7fb;
+  --color-surface: #ffffff;
+  --color-ink: #141826;
+  --color-ink-soft: #5b6275;
+  --color-line: #e3e6ef;
+  --color-spruce: #4f46e5;       /* the accent: buttons, links, today */
+  --color-spruce-deep: #312e81;
+  --color-spruce-tint: #eef0ff;
+  --color-on-spruce: #ffffff;
+  --color-sign: #16a34a;
+  --color-sign-tint: #e7f7ec;
+  --color-danger: #b42318;
+  --color-danger-tint: #fdecea;
+  --color-ok: #15803d;
+  --color-chart: #4f46e5;        /* the one data hue (validated against the light surface) */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --radius-card: 14px;
+}
+
+html {
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-paper: #0f1220;
+    --color-surface: #171b2e;
+    --color-ink: #eef0f8;
+    --color-ink-soft: #a3a9c2;
+    --color-line: #283050;
+    --color-spruce: #8b8cf8;
+    --color-spruce-deep: #c7c8ff;
+    --color-spruce-tint: #24284a;
+    --color-on-spruce: #0f1220;
+    --color-sign: #4ade80;
+    --color-sign-tint: #173326;
+    --color-danger: #f4978e;
+    --color-danger-tint: #3a1d1b;
+    --color-ok: #4ade80;
+    --color-chart: #7c7ef2;      /* its own dark step, validated against the dark surface */
+  }
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
