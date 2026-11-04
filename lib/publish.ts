@@ -7,6 +7,7 @@
 // Server only.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { readStored } from "./media";
+import { nextMetricsAt } from "./insights";
 import { freshTokens, NETWORKS } from "./networks";
 import { NetworkError, type MediaFile, type Step } from "./networks/common";
 import { PLATFORM_INFO } from "./platforms";
@@ -88,12 +89,14 @@ async function sendTo(db: Db, post: Post, target: PostTarget, account: AccountWi
       progress: continuing ? target.progress : {},
     });
     if (step.done) {
+      const sentAt = now();
       await setTarget(db, target.id, {
         status: "published",
         external_id: step.id,
         external_url: step.url,
         error: null,
-        published_at: now(),
+        published_at: sentAt,
+        metrics_next_at: nextMetricsAt(account.platform, sentAt, null),
         check_at: null,
         progress: step.note ? { note: step.note } : {},
       });

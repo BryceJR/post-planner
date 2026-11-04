@@ -1,7 +1,7 @@
 # Post Planner
 
 Your own social media calendar: plan posts for X, Facebook, Instagram,
-LinkedIn, YouTube, TikTok, Reddit and Bluesky; schedule them or post them now;
+LinkedIn, YouTube, TikTok and Bluesky; schedule them or post them now;
 see how they did (views, likes, comments, shares, followers). An AI assistant
 (Grok, Claude, ChatGPT…) can do all of it from a chat, through the connector at
 `/api/mcp`.
@@ -17,17 +17,21 @@ review that app. This is the part a paid service like Postiz does for you.
 
 | Network | Posts | Insights | Until the network reviews the app |
 |---|---|---|---|
-| X | text, up to 4 pictures, or a video | views, likes, replies, reposts, bookmarks; followers | depends on your X developer plan (posting and reading are limited or paid) |
+| X | text, up to 4 pictures, or a video | views, likes, replies, reposts, bookmarks; followers | nothing to review, but **X charges per use**: buy credits in the X Developer Console (Nov 2026: about $0.015 a post, $0.20 if it has a link, $0.005 a read) |
 | Facebook Pages | text, pictures, or a video | reactions, comments, shares, reach; followers | works for your own Pages; switch the Meta app to Live so posts are public |
 | Instagram (business or creator, linked to a Page) | pictures (carousel), or a Reel | likes, comments, views, reach, saves, shares; followers | works for your own accounts |
 | LinkedIn | text, pictures, or a video | company pages only (LinkedIn shares none for personal profiles) | company pages need LinkedIn's approval (Community Management API) |
 | YouTube | one video, with title, privacy, tags | views, likes, comments; subscribers | **every upload is private** until Google audits the app (free form; weeks to months) |
 | TikTok | one video, with privacy and comments / duet / stitch | views, likes, comments, shares; followers | **only to a private account, visible to you**, until TikTok audits the app |
-| Reddit | a text post or a picture post, to a subreddit or your profile | score, comments; profile followers | Reddit now reviews new API apps and may ask you to request access |
 | Bluesky | text, up to 4 pictures | likes, replies, reposts; followers | nothing to review: an app password |
 
-Videos aren't sent to Reddit or Bluesky yet. Files are up to 50 MB (the
-Supabase free plan's limit); MP4 works everywhere.
+Videos aren't sent to Bluesky yet. Files are up to 50 MB (the Supabase free
+plan's limit); MP4 works everywhere.
+
+**Reddit is hidden.** Reddit stopped taking new API apps on October 31, 2026
+(and plans to close its public API in March 2027), so there's no way to get
+the keys. Its code is still in `lib/networks/reddit.ts`; it's switched off by
+`HIDDEN_PLATFORMS` in `lib/platforms.ts`.
 
 ## Setup
 
@@ -59,12 +63,16 @@ Supabase free plan's limit); MP4 works everywhere.
 - **Nothing posts twice.** A post is claimed before it's sent. A send that
   fails shows as **Didn't go** with the network's reason, and goes again only
   when you press **Try again** (or ask the assistant to).
-- **Drafts can be incomplete.** What a network needs (a video for YouTube, a
-  subreddit for Reddit) is checked when the post is scheduled or sent.
+- **Drafts can be incomplete.** What a network needs (a video for YouTube or
+  TikTok, a picture for Instagram) is checked when the post is scheduled or sent.
 - **Videos the network is still processing** (TikTok, Instagram Reels, X,
   LinkedIn) show as *being processed*, and the every-minute run finishes them.
 - **Insights** refresh hourly for a post's first two days, every six hours
   for two weeks, then daily until 90 days. Followers are counted once a day.
+  X charges for every read, so an X post's numbers are read four times (an
+  hour, a day, a week and a month after it goes out) and X followers once a
+  week. Reading costs about $0.02 per X post, and counting followers about
+  $0.05 a month.
 
 ## Working on it
 

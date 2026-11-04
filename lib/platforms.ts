@@ -37,6 +37,16 @@ export const PLATFORM_INFO: Record<Platform, PlatformInfo> = {
   bluesky: { key: "bluesky", name: "Bluesky", connection: "bluesky", maxChars: 300, counting: "graphemes", overLimitIsWarning: false, maxImages: 4, maxVideos: 0, needs: "nothing", maxVideoSeconds: null },
 };
 
+// Networks that can't be connected any more, so they're left out of the
+// Accounts page, the AI connector and the docs. Their code stays, in case
+// that changes. Reddit stopped taking new API apps on October 31, 2026.
+export const HIDDEN_PLATFORMS: readonly Platform[] = ["reddit"];
+export const SHOWN_PLATFORMS: readonly Platform[] = PLATFORMS.filter((p) => !HIDDEN_PLATFORMS.includes(p));
+
+export function isHiddenConnection(c: Connection): boolean {
+  return CONNECTION_INFO[c].platforms.every((p) => HIDDEN_PLATFORMS.includes(p));
+}
+
 export function isPlatform(value: unknown): value is Platform {
   return typeof value === "string" && (PLATFORMS as readonly string[]).includes(value);
 }
@@ -64,7 +74,8 @@ export const CONNECTION_INFO: Record<Connection, ConnectionInfo> = {
     envSecret: "X_CLIENT_SECRET",
     setup:
       "developer.x.com → Projects & Apps → your app → User authentication settings: OAuth 2.0, type Web App, permissions Read and write. Add the callback URL below, then copy the OAuth 2.0 Client ID and Client Secret (Keys and tokens).",
-    caveat: "How much it can post and read (insights) depends on your X developer plan.",
+    caveat:
+      "X charges for each post and each read: buy credits in the X Developer Console. To keep that small, Post Planner reads an X post's numbers four times (an hour, a day, a week and a month after it goes out) and the followers once a week.",
   },
   meta: {
     key: "meta",
@@ -114,7 +125,7 @@ export const CONNECTION_INFO: Record<Connection, ConnectionInfo> = {
     envSecret: "REDDIT_CLIENT_SECRET",
     setup:
       "reddit.com/prefs/apps → create another app → type web app, with the callback URL below as the redirect uri. The id is under the app's name; the secret is labeled secret.",
-    caveat: "Reddit now reviews new API apps, so it may ask you to request access before the app works.",
+    caveat: "Reddit stopped taking new API apps on October 31, 2026, so it's hidden (HIDDEN_PLATFORMS above).",
   },
   bluesky: {
     key: "bluesky",

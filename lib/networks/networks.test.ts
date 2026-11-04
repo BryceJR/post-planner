@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { packState, unpackState } from "../connect";
-import { callbackUrl, CONNECTION_INFO, connectionCredentials, siteOrigin } from "../platforms";
+import { callbackUrl, CONNECTION_INFO, CONNECTIONS, connectionCredentials, isHiddenConnection, SHOWN_PLATFORMS, siteOrigin } from "../platforms";
 import { outcome, runLooksOff } from "../publish";
 import { authorizeUrlFor } from "./index";
 import { cleanHandle, looksLikeAppPassword } from "./bluesky";
@@ -102,5 +102,14 @@ describe("publishing outcome", () => {
     expect(runLooksOff(null, 0, now)).toBe(false);
     expect(runLooksOff(null, 2, now)).toBe(true);
     expect(runLooksOff("2026-11-03T11:55:00Z", 2, now)).toBe(false);
+  });
+});
+
+describe("hidden networks", () => {
+  it("Reddit is hidden everywhere; the rest are shown", () => {
+    expect(SHOWN_PLATFORMS).not.toContain("reddit");
+    expect(SHOWN_PLATFORMS).toEqual(["x", "facebook", "instagram", "linkedin", "youtube", "tiktok", "bluesky"]);
+    expect(CONNECTIONS.filter(isHiddenConnection)).toEqual(["reddit"]);
+    expect(CONNECTION_INFO.meta.platforms.every((p) => SHOWN_PLATFORMS.includes(p))).toBe(true);
   });
 });

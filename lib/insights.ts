@@ -1,7 +1,7 @@
 // Insights: each sent post's numbers (views, likes, comments, shares,
-// saves, clicks, reach, whatever its network shares), refreshed often while
-// the post is new and less often after; and each account's followers once
-// a day. The every-minute run does a little at a time.
+// saves, clicks, reach, whatever its network shares), read often while the
+// post is new and less often after; and each account's followers once a day
+// (X: once a week). The every-minute run does a little at a time.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { freshTokens, NETWORKS } from "./networks";
 import { NetworkError } from "./networks/common";
@@ -16,14 +16,27 @@ const HOUR = 3600_000;
 const DAY = 24 * HOUR;
 export const TRACK_FOR_MS = 90 * DAY;
 
-// How long a post's numbers are good for: hourly on its first two days,
-// every six hours for two weeks, then daily until 90 days.
-export function refreshEvery(publishedAt: string, nowMs = Date.now()): number | null {
-  const age = nowMs - Date.parse(publishedAt);
-  if (age > TRACK_FOR_MS) return null;
-  if (age < 2 * DAY) return HOUR;
-  if (age < 14 * DAY) return 6 * HOUR;
-  return DAY;
+// X charges for every read (and for every follower count), so an X post's
+// numbers are read four times, at these ages, and X followers once a week.
+export const X_READS_AT = [HOUR, DAY, 7 * DAY, 30 * DAY];
+export const X_FOLLOWERS_EVERY_DAYS = 7;
+
+// When a post's numbers are read next, after reading them at `lastMs` (null:
+// it was just sent). Most networks: hourly on its first two days, every six
+// hours for two weeks, then daily until 90 days. X: at the ages above. Null:
+// no more reads.
+export function nextMetricsAt(platform: Platform, publishedAt: string, lastMs: number | null): string | null {
+  const sent = Date.parse(publishedAt);
+  if (Number.isNaN(sent)) return null;
+  if (platform === "x") {
+    const after = lastMs ?? sent;
+    const next = X_READS_AT.map((age) => sent + age).find((at) => at > after);
+    return next === undefined ? null : new Date(next).toISOString();
+  }
+  if (lastMs === null) return new Date(sent + HOUR).toISOString();
+  const age = lastMs - sent;
+  const next = lastMs + (age < 2 * DAY ? HOUR : age < 14 * DAY ? 6 * HOUR : DAY);
+  return next - sent > TRACK_FOR_MS ? null : new Date(next).toISOString();
 }
 
 // New numbers over old, keeping what the network didn't say this time.
@@ -33,7 +46,7 @@ export function mergeMetrics(old: Metrics, fresh: Metrics): Metrics {
   return out;
 }
 
-type Due = { id: string; account_id: string; external_id: string; published_at: string; metrics: Metrics | null; metrics_at: string | null };
+type Due = { id: string; account_id: string; external_id: string; published_at: string; metrics: Metrics | null };
 
 async function fresh(db: Db, account: AccountWithTokens): Promise<AccountWithTokens> {
   const change = await freshTokens(account, async () => (await accountsWithTokens(db, [account.id]))[0] ?? null);
@@ -46,18 +59,14 @@ export async function refreshMetrics(db: Db, opts: { nowMs?: number; until: numb
   const nowMs = opts.nowMs ?? Date.now();
   const { data, error } = await db
     .from("post_targets")
-    .select("id, account_id, external_id, published_at, metrics, metrics_at")
+    .select("id, account_id, external_id, published_at, metrics")
     .eq("status", "published")
     .not("external_id", "is", null)
-    .gte("published_at", new Date(nowMs - TRACK_FOR_MS).toISOString())
-    .or(`metrics_at.is.null,metrics_at.lt."${new Date(nowMs - HOUR).toISOString()}"`)
-    .order("metrics_at", { ascending: true, nullsFirst: true })
+    .lte("metrics_next_at", new Date(nowMs).toISOString())
+    .order("metrics_next_at", { ascending: true })
     .limit(opts.max ?? 40);
   if (error) throw new Error(error.message);
-  const due = ((data ?? []) as Due[]).filter((t) => {
-    const every = refreshEvery(t.published_at, nowMs);
-    return every !== null && (!t.metrics_at || nowMs - Date.parse(t.metrics_at) >= every);
-  });
+  const due = (data ?? []) as Due[];
   if (!due.length) return 0;
   const accounts = new Map((await accountsWithTokens(db, [...new Set(due.map((t) => t.account_id))])).map((a) => [a.id, a]));
   let done = 0;
@@ -65,15 +74,16 @@ export async function refreshMetrics(db: Db, opts: { nowMs?: number; until: numb
     if (Date.now() > opts.until) break;
     let account = accounts.get(t.account_id);
     const reader = account ? NETWORKS[account.platform].metrics : undefined;
-    const stamp = new Date().toISOString();
-    if (!account || account.status !== "connected" || !reader) {
-      await db.from("post_targets").update({ metrics_at: stamp }).eq("id", t.id);
-      continue;
-    }
+    // the next read is set before this one, so a read that fails or hangs
+    // waits its turn instead of coming back every minute
+    const next = account && reader ? nextMetricsAt(account.platform, t.published_at, Date.now()) : null;
+    await db.from("post_targets").update({ metrics_next_at: next }).eq("id", t.id);
+    if (!account || account.status !== "connected" || !reader) continue;
     try {
       account = await fresh(db, account);
       accounts.set(account.id, account);
       const m = await reader(account, t.external_id);
+      const stamp = new Date().toISOString();
       if (m) {
         const merged = mergeMetrics(t.metrics ?? {}, m);
         await db.from("post_targets").update({ metrics: merged, metrics_at: stamp }).eq("id", t.id);
@@ -83,8 +93,7 @@ export async function refreshMetrics(db: Db, opts: { nowMs?: number; until: numb
       }
       done++;
     } catch (e) {
-      // numbers are a nicety: try again at the next interval
-      await db.from("post_targets").update({ metrics_at: stamp }).eq("id", t.id);
+      // numbers are a nicety: they're read again at the next time
       if (e instanceof NetworkError && e.reconnect) {
         await updateAccount(db, account.id, { status: "reconnect", last_error: e.message.slice(0, 2000) });
         accounts.set(account.id, { ...account, status: "reconnect" });
@@ -94,16 +103,19 @@ export async function refreshMetrics(db: Db, opts: { nowMs?: number; until: numb
   return done;
 }
 
-// Followers, once a day (in the calendar's time zone).
+// Followers, once a day (in the calendar's time zone); X, once a week.
 export async function refreshFollowers(db: Db, opts: { timezone: string; lastDay: string | null; nowMs?: number; until: number }): Promise<number> {
-  const today = dayInZone(opts.nowMs ?? Date.now(), opts.timezone);
+  const nowMs = opts.nowMs ?? Date.now();
+  const today = dayInZone(nowMs, opts.timezone);
   if (opts.lastDay === today) return 0;
   await saveSettings(db, { last_stats_day: today });
+  const accounts = await accountsWithTokens(db);
+  const counted = await countedSince(db, accounts.filter((a) => a.platform === "x").map((a) => a.id), dayInZone(nowMs - (X_FOLLOWERS_EVERY_DAYS - 1) * DAY, opts.timezone));
   let done = 0;
-  for (let account of await accountsWithTokens(db)) {
+  for (let account of accounts) {
     if (Date.now() > opts.until) break;
     const reader = NETWORKS[account.platform].followers;
-    if (!reader) continue;
+    if (!reader || counted.has(account.id)) continue;
     try {
       account = await fresh(db, account);
       const n = await reader(account);
@@ -112,10 +124,17 @@ export async function refreshFollowers(db: Db, opts: { timezone: string; lastDay
         done++;
       }
     } catch {
-      // tomorrow, then
+      // next time, then
     }
   }
   return done;
+}
+
+// Which of these accounts have a follower count from `day` on.
+async function countedSince(db: Db, ids: string[], day: string): Promise<Set<string>> {
+  if (!ids.length) return new Set();
+  const { data } = await db.from("account_stats").select("account_id").in("account_id", ids).gte("day", day).not("followers", "is", null);
+  return new Set(((data ?? []) as { account_id: string }[]).map((r) => r.account_id));
 }
 
 // ---------- the Insights page and the assistant ----------

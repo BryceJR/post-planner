@@ -6,7 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { daysBetween, isDay } from "../calendar";
 import { loadInsights, type Totals } from "../insights";
 import { importFromUrl, MEDIA_BUCKET } from "../media";
-import { isPlatform, PLATFORM_INFO, PLATFORMS, type Platform } from "../platforms";
+import { isPlatform, PLATFORM_INFO, SHOWN_PLATFORMS } from "../platforms";
 import { publishNow, type PostReport } from "../publish";
 import { deletePost, listAccounts, loadPost, loadPostsBetween, loadSettings, loadUndatedDrafts, problemsBeforeSending, savePost, type PostInput, type When } from "../store";
 import { POST_STATUSES, type Account, type MediaItem, type Post, type PostStatus } from "../types";
@@ -139,7 +139,7 @@ function pickAccounts(args: Args, accounts: Account[]): { ids: string[] } | { er
   }
   for (const n of networks ?? []) {
     const key = networkKey(n);
-    if (!isPlatform(key)) return { error: `"${n}" isn't one of the networks (${PLATFORMS.join(", ")}).` };
+    if (!isPlatform(key)) return { error: `"${n}" isn't one of the networks (${SHOWN_PLATFORMS.join(", ")}).` };
     const on = accounts.filter((a) => a.platform === key && a.status !== "off");
     if (!on.length) return { error: `No ${PLATFORM_INFO[key].name} account is connected. Connect one in Post Planner → Accounts.` };
     for (const a of on) chosen.add(a.id);
@@ -193,7 +193,7 @@ const SETTINGS_FOR_SCHEMA = {
   type: "object",
   additionalProperties: { type: "object" },
   description:
-    'What some networks need besides the words, keyed by network name or account id. youtube: {"title": "…" (max 100), "privacy": "public"|"unlisted"|"private", "tags": ["…"], "madeForKids": false}. reddit: {"subreddit": "HVAC" (or "u/yourname"), "title": "…" (required; max 300), "nsfw": false, "spoiler": false}. tiktok: {"privacy": "PUBLIC_TO_EVERYONE"|"MUTUAL_FOLLOW_FRIENDS"|"FOLLOWER_OF_CREATOR"|"SELF_ONLY", "allowComments": true, "allowDuet": true, "allowStitch": true}. Titles default to the first line of the text.',
+    'What some networks need besides the words, keyed by network name or account id. youtube: {"title": "…" (max 100), "privacy": "public"|"unlisted"|"private", "tags": ["…"], "madeForKids": false}. tiktok: {"privacy": "PUBLIC_TO_EVERYONE"|"MUTUAL_FOLLOW_FRIENDS"|"FOLLOWER_OF_CREATOR"|"SELF_ONLY", "allowComments": true, "allowDuet": true, "allowStitch": true}. Titles default to the first line of the text.',
 };
 
 function totalsView(t: Totals) {
@@ -223,7 +223,7 @@ export function socialServer(db: Db, caller: { name: string }): Server {
     {
       name: "list_accounts",
       title: "List social accounts",
-      description: "The social accounts connected in Post Planner (X, Facebook Pages, Instagram, LinkedIn, YouTube, TikTok, Reddit, Bluesky), with their ids and each network's limits, plus the calendar's time zone and the time now.",
+      description: "The social accounts connected in Post Planner (X, Facebook Pages, Instagram, LinkedIn, YouTube, TikTok, Bluesky), with their ids and each network's limits, plus the calendar's time zone and the time now.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
       annotations: { readOnlyHint: true, openWorldHint: false },
       run: async () => {
@@ -287,7 +287,7 @@ export function socialServer(db: Db, caller: { name: string }): Server {
       name: "get_insights",
       title: "See how posts are doing",
       description:
-        "Totals for posts sent between two days (views, likes, comments, shares, saves, clicks, reach: whatever each network shares), by network, the best posts, and each account's followers. Defaults to the last 30 days. Numbers refresh hourly for new posts, then less often.",
+        "Totals for posts sent between two days (views, likes, comments, shares, saves, clicks, reach: whatever each network shares), by network, the best posts, and each account's followers. Defaults to the last 30 days. Numbers refresh hourly for new posts, then less often; X posts' numbers only an hour, a day, a week and a month after they go out (X charges for each read).",
       inputSchema: {
         type: "object",
         properties: {
@@ -324,14 +324,14 @@ export function socialServer(db: Db, caller: { name: string }): Server {
       name: "create_post",
       title: "Write a post",
       description:
-        "Writes a post for one or more accounts and posts it now, schedules it, or saves it as a draft. Checks each network's rules first (length, media, titles) and says what to fix. Use text_for to give a network shorter or different wording (X allows 280 characters, Bluesky 300) and settings_for for YouTube titles, Reddit's subreddit and title, and TikTok's privacy.",
+        "Writes a post for one or more accounts and posts it now, schedules it, or saves it as a draft. Checks each network's rules first (length, media, titles) and says what to fix. Use text_for to give a network shorter or different wording (X allows 280 characters, Bluesky 300) and settings_for for YouTube titles and TikTok's privacy.",
       inputSchema: {
         type: "object",
         properties: {
           text: { type: "string", description: "The post's words (a video's description on YouTube, its caption on TikTok)." },
           when: { type: "string", description: WHEN_HELP },
           account_ids: { type: "array", items: { type: "string" }, description: "Accounts to post to, by id (list_accounts)." },
-          networks: { type: "array", items: { type: "string", enum: [...PLATFORMS] }, description: "Or: every connected account on these networks." },
+          networks: { type: "array", items: { type: "string", enum: [...SHOWN_PLATFORMS] }, description: "Or: every connected account on these networks." },
           media: MEDIA_SCHEMA,
           text_for: TEXT_FOR_SCHEMA,
           settings_for: SETTINGS_FOR_SCHEMA,
@@ -378,7 +378,7 @@ export function socialServer(db: Db, caller: { name: string }): Server {
           text: { type: "string" },
           when: { type: "string", description: WHEN_HELP },
           account_ids: { type: "array", items: { type: "string" } },
-          networks: { type: "array", items: { type: "string", enum: [...PLATFORMS] } },
+          networks: { type: "array", items: { type: "string", enum: [...SHOWN_PLATFORMS] } },
           media: MEDIA_SCHEMA,
           text_for: TEXT_FOR_SCHEMA,
           settings_for: SETTINGS_FOR_SCHEMA,
@@ -472,12 +472,12 @@ export function socialServer(db: Db, caller: { name: string }): Server {
     version: "1.0.0",
     instructions: async () => {
       const tz = await zone();
-      const names = (Object.keys(PLATFORM_INFO) as Platform[]).map((p) => PLATFORM_INFO[p].name).join(", ");
+      const names = SHOWN_PLATFORMS.map((p) => PLATFORM_INFO[p].name).join(", ");
       return [
         `Post Planner is the owner's social media calendar. It posts to their own ${names} accounts and tracks how the posts do.`,
         "Start with list_accounts for the account ids. list_posts shows the calendar, get_insights how posts are doing. create_post writes a post and either posts it now, schedules it, or saves a draft; update_post, publish_post_now and delete_post change what's there.",
         `Times without an offset are read in the calendar's time zone, ${tz}. It's ${sayWhen(new Date().toISOString(), tz)} now.`,
-        "Each network has its own limits: X 280 characters (unless the account has Premium), Bluesky 300, Instagram 2,200 and needs a picture or video, YouTube and TikTok need a video, Reddit needs a subreddit and a title. Use text_for and settings_for rather than cutting the post everywhere.",
+        "Each network has its own limits: X 280 characters (unless the account has Premium), Bluesky 300, Instagram 2,200 and needs a picture or video, YouTube and TikTok need a video. Use text_for and settings_for rather than cutting the post everywhere.",
         "Pictures and videos are public links; they're downloaded and kept (up to 50 MB).",
         'Posting goes out under the owner\'s name: unless they asked to post right away, show them the wording and get a yes before using when="now" or publish_post_now.',
       ].join("\n");
