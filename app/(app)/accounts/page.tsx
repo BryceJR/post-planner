@@ -9,7 +9,7 @@ import { listGrants } from "@/lib/ai/grants";
 import { mcpUrl, originFromHeaders } from "@/lib/ai/oauth";
 import { db } from "@/lib/db";
 import { linkedinPagesOn } from "@/lib/networks/linkedin";
-import { callbackUrl, CONNECTION_INFO, connectionCredentials, PLATFORM_INFO, siteOrigin, type Connection } from "@/lib/platforms";
+import { callbackUrl, CONNECTION_INFO, connectionCredentials, isHiddenConnection, PLATFORM_INFO, siteOrigin, type Connection } from "@/lib/platforms";
 import { countScheduled, listAccounts, loadSettings } from "@/lib/store";
 import { sayWhen } from "@/lib/when";
 import { disconnectAccountAction, revokeGrantAction, saveTimezoneAction } from "../actions";
@@ -33,7 +33,7 @@ const ZONES: [string, string][] = [
 ];
 
 const card = "space-y-3 rounded-card border border-line bg-surface p-4";
-const OAUTH: Connection[] = ["x", "meta", "linkedin", "google", "tiktok", "reddit"];
+const OAUTH: Connection[] = (["x", "meta", "linkedin", "google", "tiktok", "reddit"] as const).filter((c) => !isHiddenConnection(c));
 
 function day(iso: string, tz: string) {
   return new Intl.DateTimeFormat("en-US", { timeZone: tz, month: "short", day: "numeric", year: "numeric" }).format(new Date(iso));

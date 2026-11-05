@@ -96,6 +96,7 @@ export function PostForm({ accounts, initial, timeZone }: { accounts: Account[];
   const fileRef = useRef<HTMLInputElement>(null);
 
   const chosen = accounts.filter((a) => selected.includes(a.id));
+  const titled = [...new Set(chosen.filter((a) => a.platform === "youtube" || a.platform === "reddit").map((a) => PLATFORM_INFO[a.platform].name))];
   const sharedText = chosen.filter((a) => own[a.id] === undefined);
   const hasVideo = media.some((m) => m.kind === "video");
 
@@ -213,7 +214,7 @@ export function PostForm({ accounts, initial, timeZone }: { accounts: Account[];
         </div>
       </fieldset>
 
-      <Field label="What it says" htmlFor="body" hint={chosen.some((a) => a.platform === "youtube" || a.platform === "reddit") ? "On YouTube and Reddit the first line is the title unless you give one below." : undefined}>
+      <Field label="What it says" htmlFor="body" hint={titled.length ? `On ${titled.join(" and ")} the first line is the title unless you give one below.` : undefined}>
         <Textarea id="body" name="body" value={body} onChange={(e) => setBody(e.target.value)} rows={7} maxLength={10000} placeholder="Write the post…" />
         {sharedText.length > 0 && (
           <div className="flex flex-wrap gap-x-3 gap-y-1">

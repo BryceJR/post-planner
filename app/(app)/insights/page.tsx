@@ -55,7 +55,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Insights</h1>
           <p className="mt-1 max-w-2xl text-sm text-ink-soft">
-            Posts sent in the last {span} days, with the numbers each network shares. New posts refresh hourly, then less often. LinkedIn shares no numbers for personal profiles; X&apos;s depend on your developer plan.
+            Posts sent in the last {span} days, with the numbers each network shares. New posts refresh hourly, then less often. X charges for each read, so X posts refresh an hour, a day, a week and a month after they go out. LinkedIn shares no numbers for personal profiles.
           </p>
         </div>
         <nav aria-label="Range" className="flex gap-1 rounded-xl border border-line bg-surface p-1">
@@ -71,7 +71,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
         <Tile label="Posts sent" value={data.total.posts.toLocaleString("en-US")} note={`${networks.length} network${networks.length === 1 ? "" : "s"}`} />
         <Tile label="Views" value={compact(data.total.views)} />
         <Tile label="Likes, comments, shares, saves" value={compact(eng(data.total))} />
-        <Tile label="Followers" value={compact(followersNow)} note={followersChange ? `${followersChange > 0 ? "+" : ""}${followersChange.toLocaleString("en-US")} in this range` : "Counted once a day"} />
+        <Tile label="Followers" value={compact(followersNow)} note={followersChange ? `${followersChange > 0 ? "+" : ""}${followersChange.toLocaleString("en-US")} in this range` : "Counted daily (X: weekly)"} />
       </div>
 
       <section className="space-y-3 rounded-card border border-line bg-surface p-4">

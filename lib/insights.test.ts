@@ -1,16 +1,34 @@
 import { describe, expect, it } from "vitest";
-import { engagement, mergeMetrics, refreshEvery, summarize } from "./insights";
+import { engagement, mergeMetrics, nextMetricsAt, summarize } from "./insights";
 import type { Post } from "./types";
 
 const H = 3600_000;
 
 describe("insights", () => {
-  it("refreshes new posts often, older ones less, and stops after 90 days", () => {
-    const now = Date.parse("2026-11-03T12:00:00Z");
-    expect(refreshEvery(new Date(now - 5 * H).toISOString(), now)).toBe(H);
-    expect(refreshEvery(new Date(now - 5 * 24 * H).toISOString(), now)).toBe(6 * H);
-    expect(refreshEvery(new Date(now - 30 * 24 * H).toISOString(), now)).toBe(24 * H);
-    expect(refreshEvery(new Date(now - 91 * 24 * H).toISOString(), now)).toBeNull();
+  it("reads new posts often, older ones less, and stops after 90 days", () => {
+    const sent = "2026-11-03T12:00:00.000Z";
+    const at = (h: number) => Date.parse(sent) + h * H;
+    const iso = (h: number) => new Date(at(h)).toISOString();
+    expect(nextMetricsAt("facebook", sent, null)).toBe(iso(1));
+    expect(nextMetricsAt("facebook", sent, at(5))).toBe(iso(6));
+    expect(nextMetricsAt("instagram", sent, at(5 * 24))).toBe(iso(5 * 24 + 6));
+    expect(nextMetricsAt("tiktok", sent, at(30 * 24))).toBe(iso(31 * 24));
+    expect(nextMetricsAt("youtube", sent, at(89.5 * 24))).toBeNull();
+    expect(nextMetricsAt("youtube", "not a date", null)).toBeNull();
+  });
+  it("reads an X post four times, since X charges for each read", () => {
+    const sent = "2026-11-03T12:00:00.000Z";
+    const at = (h: number) => Date.parse(sent) + h * H;
+    const iso = (h: number) => new Date(at(h)).toISOString();
+    const reads: string[] = [];
+    let next = nextMetricsAt("x", sent, null);
+    while (next && reads.length < 10) {
+      reads.push(next);
+      next = nextMetricsAt("x", sent, Date.parse(next) + 60_000); // read a minute late
+    }
+    expect(reads).toEqual([iso(1), iso(24), iso(7 * 24), iso(30 * 24)]);
+    // a run that was down for days reads once, not once per missed time
+    expect(nextMetricsAt("x", sent, at(10 * 24))).toBe(iso(30 * 24));
   });
   it("keeps numbers a network didn't say this time", () => {
     expect(mergeMetrics({ views: 10, likes: 2 }, { likes: 5, views: null })).toEqual({ views: 10, likes: 5 });

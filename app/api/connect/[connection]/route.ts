@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { signedIn } from "@/lib/auth";
 import { newPkce, packState, STATE_COOKIE } from "@/lib/connect";
 import { authorizeUrlFor, isOAuthConnection } from "@/lib/networks";
-import { callbackUrl, CONNECTION_INFO, connectionCredentials, isConnection, siteOrigin } from "@/lib/platforms";
+import { callbackUrl, CONNECTION_INFO, connectionCredentials, isConnection, isHiddenConnection, siteOrigin } from "@/lib/platforms";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ conn
   if (!(await signedIn())) return NextResponse.redirect(new URL("/login?next=/accounts", request.url));
   const origin = siteOrigin(request.url);
   const back = (q: string) => NextResponse.redirect(`${origin}/accounts?${q}`);
-  if (!isConnection(connection) || !isOAuthConnection(connection)) return back("problem=unknown");
+  if (!isConnection(connection) || !isOAuthConnection(connection) || isHiddenConnection(connection)) return back("problem=unknown");
   const info = CONNECTION_INFO[connection];
   const creds = connectionCredentials(info);
   if (!creds) return back(`problem=${encodeURIComponent(`${info.name} isn't set up yet: add ${info.envId} and ${info.envSecret} (see below), then redeploy.`)}`);

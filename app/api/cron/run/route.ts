@@ -1,6 +1,6 @@
 // The every-minute run: posts that are due go out, videos a network was
-// processing are checked, and a few posts' numbers (and once a day, the
-// followers) are refreshed. Called with `Authorization: Bearer <CRON_SECRET>`
+// processing are checked, and the posts' numbers that are due (and once a
+// day, the followers) are refreshed. Called with `Authorization: Bearer <CRON_SECRET>`
 // (Accounts → Scheduled posts has the Supabase setup).
 import { NextResponse } from "next/server";
 import { db, setupProblem } from "@/lib/db";
