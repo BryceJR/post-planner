@@ -53,6 +53,9 @@ the keys. Its code is still in `lib/networks/reddit.ts`; it's switched off by
 4. **Networks.** For each one you use, make its developer app, add its two
    keys in Vercel (names on the Accounts page and in `.env.example`), redeploy,
    then press **Connect** on the Accounts page. Bluesky only needs an app password.
+   When a network asks for a privacy policy or terms of service address, use
+   `/privacy` and `/terms` on your app's address (set `CONTACT_EMAIL` to show
+   a contact address there).
 5. **Your AI assistant.** Accounts → AI assistants has the connector address.
    - **Grok:** grok.com → Connectors → New connector → Custom → paste the address → Connect → sign in and **Allow**.
    - **Claude:** claude.ai → Settings → Connectors → Add custom connector → paste → Connect → **Allow**.

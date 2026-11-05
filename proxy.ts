@@ -4,7 +4,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, sessionValid } from "@/lib/session";
 
-const OPEN = ["/login", "/api/mcp", "/.well-known", "/api/cron"];
+const OPEN = ["/login", "/privacy", "/terms", "/api/mcp", "/.well-known", "/api/cron"];
 
 export function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
